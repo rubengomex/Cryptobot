@@ -1,0 +1,29 @@
+{
+  "name": "cryptobot",
+  "version": "1.0.0",
+  "description": "Cryptobot to do trades on gdax, bitstamp and kraken.",
+  "main": "index.js",
+  "scripts": {
+    "start": "NODE_PATH=src node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "crytpocurrency",
+    "gdax",
+    "nodeJs",
+    "promises",
+    "es6",
+    "es7"
+  ],
+  "author": "Rúben Gomes <gomesruben21@gmail.com> (http://rubengomes10.github.io/)",
+  "license": "MIT",
+  "dependencies": {
+    "colors": "1.1.2",
+    "commander": "2.12.2",
+    "gdax": "github:coinbase/gdax-node",
+    "kraken-api": "1.0.0",
+    "mongoose": "4.13.8",
+    "node-bitstamp": "1.6.1",
+    "technicalindicators": "1.0.21"
+  }
+}
