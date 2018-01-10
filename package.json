@@ -18,12 +18,14 @@
   "author": "Rúben Gomes <gomesruben21@gmail.com> (http://rubengomes10.github.io/)",
   "license": "MIT",
   "dependencies": {
+    "bitfinex-api-node": "2.0.0-beta",
     "colors": "1.1.2",
     "commander": "2.12.2",
     "gdax": "github:coinbase/gdax-node",
     "kraken-api": "1.0.0",
     "mongoose": "4.13.8",
     "node-bitstamp": "1.6.1",
+    "promise-tool": "1.1.5",
     "technicalindicators": "1.0.21"
   }
 }

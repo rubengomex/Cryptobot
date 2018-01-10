@@ -13,7 +13,6 @@ const client = new Gdax.AuthenticatedClient(key, secret, passphrase, apiURL)
 
 module.exports = {
     client,
-
     ticker({ product, onTick, onError }) {
         const socket = new Gdax.WebsocketClient(
             [product],
@@ -29,10 +28,10 @@ module.exports = {
 
         socket.on('error', err => {
             onError(err)
-            socket.open()
+            socket.connect()
         })
 
-        socket.on('close', () => socket.open())
+        socket.on('close', () => socket.connect())
 
         return socket
     },
@@ -52,10 +51,10 @@ module.exports = {
 
         socket.on('error', err => {
             onError(err)
-            socket.open()
+            socket.connect()
         })
 
-        socket.on('close', () => socket.open())
+        socket.on('close', () => socket.connect())
 
         return socket
     }

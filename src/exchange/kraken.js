@@ -5,6 +5,7 @@ const krakenClient = require('kraken-api')
 const Kraken = new krakenClient(key, secret)
 
 module.exports = {
+    name: 'Kraken',
     client: kraken,
     supportsShort: true,
     async getAccounts() {
@@ -39,5 +40,23 @@ module.exports = {
             acc[k] = amount
             return acc
         }, {})
+    },
+
+    async placeShortOrder({ amount, cost }) {
+
+    },
+
+    async currentPriceForProduct(product) {
+        const currency = this.currencyForProduct(product)
+        const ticker = await kraken.api('Ticker', { pair: currency })
+        const res = ticker['result'][currency]
+        
+        return { ask: parseFloat(res.a[0]), bid: parseFloat(res.b[0]) }
+    },
+
+    currencyForProduct(product) {
+        if(product === 'BTC-USD') { return 'XXBTZUSD' }
+        if(product === 'BTC-EUR') { return 'XXBTEUR'}
+        return null
     }
 }

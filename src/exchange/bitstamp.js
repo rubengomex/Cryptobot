@@ -1,4 +1,4 @@
-const { TickerStream, OrderBookStream, Bitstamp} = require('node-bitstamp')
+const { TickerStream, OrderBookStream, Bitstamp } = require('node-bitstamp')
 const config = require('configuration')
 const key = config.get('BITSTAMP_API_KEY')
 const secret = config.get('BITSTAMP_API_SECRET')
@@ -13,17 +13,30 @@ const bitstamp = new Bitstamp({
 })
 
 module.exports = {
+    name: 'Bitstamp',
     async getAccounts() {
         return await bitstamp.balance().then(({ body: data }) => data)
     },
     async getBalanceForProductPair(product) {
         const products = product.split('-')
         const accounts = await this.getAccounts()
-        const keys = products.reduce((d,p) => {
+        const keys = products.reduce((acc,value) => {
             const key = `${p.toLowerCase()}_available`
-            d[p] = accounts[key]
+            acc[value] = accounts[key]
+            return acc
         }, {})
 
         return keys
+    },
+
+    async currentPriceForProduct(product) {
+        const currency = this.currencyForProduct(product)
+        const ticker = await bitstamp.ticker(currency).then(({ status, headers, body }) => body)
+
+        return { ask: ticker.ask, bid: ticker.bid }
+    },
+
+    currencyForProduct(product) {
+        return product.replace('-', '').toLowerCase();
     }
 }
