@@ -1,45 +1,7 @@
 const PromiseTool = require('promise-tool')
 const colors = require('colors')
 const Trade = require('trade')
-
-class ArbitragePosition{
-    constructor({ longPrice, shortPrice, longName, shortName, time }) {
-        this.state = 'open'
-        this.trades = { 
-            long: new Trade({ price: longPrice, time }), 
-            short: new Trade({ price: shortPrice, time})
-        }
-        this.exit = undefined
-    }
-
-    close({ longPrice, shortPrice, time }) {
-        this.state = 'closed'
-        this.trades.long.close({ price: longPrice, time })
-        this.trades.short.close({ price: shortPrice, time })
-    }
-
-    calculateProfit() {
-        if(this.state !== 'closed') { return null }
-        const fee = 0.0025
-        const longProfit = this.trades.long.profit()
-        const shortTrade = this.trades.short
-        const shortSell = (shortTrade.enter.price * (1 - fee))
-        const shortBuy = (shortTrade.exit.price * (1 + fee))
-        const shortProfit = shortSell - shortBuy
-
-        return shortProfit + longProfit
-    }     
-
-    print() {
-        const enter = `Long: ${this.trades.long.price}    Short: ${this.trades.short.price}`
-        const exit = this.state === 'closed' ? `Long: ${this.trades.long.exit.price}    Short: ${this.trades.short.exit.price}` : '' 
-        const profit = this.calculateProfit()
-        const prof = this.state === 'closed' ? `${profit}` : ''
-        const colored = profit > 0 ? colors.green(prof) : colors.red(prof)
-        const end = this.state === 'closed' ? `Exit - ${exit} | Profit: ${colored}`: ''
-        console.log(`${this.state} | Enter - ${enter} | ${end}`)
-    }
-}
+const ArbitragePosition = require('./position')
 
 class Arbitrage {
     constructor({ amount, exchanges, isLive, product }) {
@@ -59,7 +21,6 @@ class Arbitrage {
 
     async start(){
         try {
-
             const balances = await Promise.all(this.exchanges.map(exchange => {
                 return exchange.getBalanceForProductPair(this.product)
             }))
@@ -71,6 +32,21 @@ class Arbitrage {
                 return acc
             }, {})
 
+            const history = await Promise.all(this.exchanges.map(ex =>{
+                return ex.getProductHistoricRates({
+                    interval: 300,
+                    product: this.product
+                })
+            })).then(h => {
+                return h.reduce((d, tick, index) => {
+                    const exchange = this.exchanges[index]
+                    d[exchange.name] = tick
+                    return d
+                }, {})
+            })
+
+            this.getAverageSpreads(history)
+
             const delay = 3000
             await PromiseTool.setInterval(delay, () => {
                 this.loop()
@@ -79,6 +55,17 @@ class Arbitrage {
         } catch(err) {
             await this.start()
         }
+    }
+
+    getAverageSpreads(history) {
+        const counts = Object.keys(history).map(key => history[key].length)
+        const equal = counts.reduce((isEqual, current, index) => {
+            if(index === 0) { return true }
+            const previous = counts[index - 1]
+            return previous === current
+        }, true)
+
+        return equal
     }
 
     createPairs(){
@@ -116,7 +103,9 @@ class Arbitrage {
                 return {prices: price, exchanges}
             })
 
-            pricesPair.forEach(pair => this.checkSpread(pair))
+            pricesPair.forEach(async pair => {
+                await this.checkSpread(pair)
+            })
 
         } catch(err) {
             console.log('Error response')
@@ -128,8 +117,8 @@ class Arbitrage {
     async checkSpread({ prices, exchanges }) {
         const openPositions = this.positions.filter(p => p.state === 'open')
         const hasOpen = openPositions > 0
-        const longPrice = hasOpen ? prices.long.bid : prices.long.ask
-        const shortPrice = hasOpen ? prices.short.ask : prices.short.bid
+        const longPrice = hasOpen ? prices.long.ask : prices.long.bid
+        const shortPrice = hasOpen ? prices.short.bid : prices.short.ask
         const {name: longName} = exchanges.long
         const {name: shortName} = exchanges.short
         const longStr = `${exchanges.long.name}: ${longPrice.toFixed(2)}`
@@ -139,8 +128,22 @@ class Arbitrage {
         const full = [`${new Date()}`, longStr, shortStr, spreadStr].join(' | ')
         console.log(full)
 
+        const product = this.product
+        const amountLong = this.amount / longPrice
+        const amountShort = this.amount / shortPrice
+
         if(openPositions.length < this.numberOfActivePositions) {
             if(spread >= 0.9) {
+                await exchanges.long.placeBuyOrder({
+                    amount: `${amountLong}`,
+                    price: `${longPrice}`,
+                    product
+                })
+                await exchanges.short.placeShortOrder({
+                    amount: `${amountShort}`,
+                    price:`${shortPrice}`,
+                    product
+                })
                 console.log(`LONG ORDER: ${longPrice}`)
                 console.log(`SHORT ORDER: ${shortPrice}`)
                 const position = new ArbitragePosition({ 
@@ -151,12 +154,22 @@ class Arbitrage {
                 this.positions.push(position)
             }
         } else {
-            console.log('CLOSING ORDER')
-            console.log(`LONG ORDER: ${longPrice}`)
-            console.log(`SHORT ORDER: ${shortPrice}`)
             if(spread < 0.0) {
                 openPositions.forEach(p => {
                     if(p.longName !== longName && p.shortName !== shortName) { return }
+                    console.log('CLOSING ORDER')
+                    console.log(`LONG ORDER: ${longPrice}`)
+                    console.log(`SHORT ORDER: ${shortPrice}`)
+                    await exchanges.short.placeBuyOrder({
+                        amount: `${amountLong}`,
+                        price: `${longPrice}`,
+                        product
+                    })
+                    await exchanges.long.placeSellOrder({
+                        amount: `${amountLong}`,
+                        price: `${longPrice}`,
+                        product
+                    })
                     p.close({ longPrice, shortPrice, time: new Date() })
                 })
             }

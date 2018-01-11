@@ -49,7 +49,7 @@ class Trader {
     }
 
     // receives on tick data
-    async onTick(data) {
+    onTick(data) {
         const {price} = data
         console.log(`Time: ${new Date}    Price: ${price}`)
 

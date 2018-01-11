@@ -1,6 +1,6 @@
 module.exports ={
-    gdax: require('exchange/gdax'),
-    bitstamp: require('exchange/bitstamp'),
-    kraken: require('exchange/kraken'),
-    bitfinex: require('exchange/bitfinex')
+    gdax: require('./gdax'),
+    bitstamp: require('./bitstamp'),
+    kraken: require('./kraken'),
+    bitfinex: require('./bitfinex')
 }

@@ -30,6 +30,26 @@ module.exports = {
         })
     },
 
+    placeBuyOrder({ price, amount, product }) {
+        return new Promise((resolve, reject) => {
+            const currency = product.replace('-', '').toLowerCase()
+            bfx.rest.new_order(currency, amount, price, 'bitfinex', 'buy', 'limit', (err, order) => {
+                if(err) { return reject(err) }
+                resolve(order)
+            })
+        })
+    },
+
+    placeShortOrder({ price, amount, product }) {
+        return new Promise((resolve, reject) => {
+            const currency = product.replace('-', '').toLowerCase()
+            bfx.rest.new_order(currency, amount, price, 'bitfinex', 'sell', 'limit', (err, order) => {
+                if(err) { return reject(err) }
+                resolve(order)
+            })
+        })
+    },
+
     currentPriceForProduct(product) {
         return new Promise((resolve, reject) => {
             const currency = this.currencyForProduct(product)
@@ -41,7 +61,7 @@ module.exports = {
     },
 
     currencyForProduct(product) {
-        const reduced = product.replace('-', '').toLowerCase();
+        const reduced = product.replace('-', '').toLowerCase()
         return `t${reduced}`
     }
 }

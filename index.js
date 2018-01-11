@@ -24,7 +24,7 @@ const main = async () => {
             await trader.start()
             break
         case 'backtest':
-            const now = new Date() - 36 * 60 * 60 * 1000
+            const now = new Date() - 1 * 60 * 1000
             const backtester = new Backtester({
                 ...options, 
                 period: 30,
@@ -37,11 +37,11 @@ const main = async () => {
             const live = program.live
             const longExchange = program.longExchange
             const shortExchange = program.shortExchange
-            const amount = program.amount
+            const amount = program.amount || 10
             const arbitrage = new Arbitrage({
                 product: program.product,
                 amount,
-                exchanges: [kraken, bitfinex]
+                exchanges: [kraken, bitstamp]
             })
             await arbitrage.start()
             break

@@ -2,7 +2,8 @@ const config = require('configuration')
 const key = config.get('KRAKEN_API_KEY')
 const secret = config.get('KRAKEN_API_SECRET')
 const krakenClient = require('kraken-api')
-const Kraken = new krakenClient(key, secret)
+const Candlestick = require('candlestick')
+const Kraken = new krakenClient(key, secret, { timeout: 60000 })
 
 module.exports = {
     name: 'Kraken',
@@ -42,8 +43,42 @@ module.exports = {
         }, {})
     },
 
-    async placeShortOrder({ amount, cost }) {
+    async getProductHistoricRates({ interval, product }) {
+        const pair = this.currencyForProduct(product)
+        const minutes = Math.floor(interval / 60)
+        const history = await kraken.api('OHLC', { pair, interval: minutes }).then(d => d.result[pair])
 
+        return history.map(h => {
+            const [startTime, open, high, low, close] = h
+            return new Candlestick({ startTime, open, high, low, close, interval })
+        })
+    },
+
+    async placeShortOrder({ amount, price, product }) {
+        const currency = this.currencyForProduct(product)
+        const order = await kraken.api('AddOrder', {
+            pair: currency,
+            type: 'sell',
+            orderType: 'limit',
+            price,
+            leverage: 1,
+            volume: amount
+        })
+
+        return order
+    },
+
+    async placeBuyOrder({ amount, price, product }) {
+        const currency = this.currencyForProduct(product)
+        const order = await kraken.api('AddOrder', {
+            pair: currency,
+            type: 'buy',
+            orderType: 'limit',
+            price,
+            volume: amount
+        })
+
+        return order
     },
 
     async currentPriceForProduct(product) {
