@@ -30,6 +30,28 @@ module.exports = {
         })
     },
 
+    openOrders({product}) {
+        return new Promise((resolve, reject) => {
+            bfx.rest.active_orders((err, orders) => {
+                if(err) { return reject(err) }
+                resolve(orders)
+            })
+        })
+    },
+
+    orderStatus({ id }) {
+        return new Promise((resolve, reject) => {
+            bfx.rest.order_status(id, (err, order) => {
+                if(err) { return reject(err) }
+                const isLive = order['is_live'];
+                const isCancelled = order['is_cancelled']
+                if(isLive) { return 'Open' }
+                if(!isLive) { return 'Finished' }
+                if(isCancelled) { return 'Finished' }
+            })
+        })
+    },
+
     placeBuyOrder({ price, amount, product }) {
         return new Promise((resolve, reject) => {
             const currency = product.replace('-', '').toLowerCase()

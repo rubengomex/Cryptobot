@@ -25,8 +25,8 @@ class SimpleCCI {
 
     onTick({ tick, time }) {
         const {open, close, high, low} = tick;
-        const cciResult = cci.nextValue({ open, high, low, close})
-        const adxResult = adx.nextValue({high, low, close })
+        const cciResult = this.cci.nextValue({ open, high, low, close})
+        const adxResult = this.adx.nextValue({high, low, close })
 
         const price = tick.average()
 

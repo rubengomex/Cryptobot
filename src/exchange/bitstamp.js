@@ -30,6 +30,17 @@ module.exports = {
         return keys
     },
 
+    async openOrders({ product }) {
+        const currency = this.currencyForProduct(product)
+        const orders = await bitstamp.openOrders(currency).then(({ body: data }) => data)
+        return orders
+    },
+
+    async orderStatus({ id }) {
+        const {status} = await bitstamp.orderStatus(id).then(({ body: data }) => data)
+        return status
+    },
+
     async getProductHistoricRates({ interval, product }) {
         const currency = this.currencyForProduct(product)
         const minutes = Math.floor(interval / 60)

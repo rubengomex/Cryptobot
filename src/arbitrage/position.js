@@ -1,11 +1,44 @@
 class ArbitragePosition{
-    constructor({ longPrice, shortPrice, longName, shortName, time }) {
-        this.state = 'open'
+    constructor({ longPrice, shortPrice, exchanges, time, longOrder, shortOrder }) {
+        this.state = 'pending-open'
         this.trades = { 
             long: new Trade({ price: longPrice, time }), 
             short: new Trade({ price: shortPrice, time})
         }
+        this.exchanges = exchanges
+        this.orders = {
+            open: {
+                long: longOrder,
+                short: shortOrder
+            }
+        }
         this.exit = undefined
+    }
+
+    async checkOrderState() {
+        const orders = this.state === 'pending-close' ? this.orders.close : this.orders.open 
+        const longStatus = await this.exchanges.long.orderStatus(orders.long.id)
+        const shortStatus = await this.exchanges.short.orderStatus(orders.short.id)
+
+        if(longStatus === 'Finished' && shortStatus === 'Finished') {
+            if (this.state === 'pending-open') {
+                this.opened()
+            } else if(this.state === 'pending-close') {
+                this.closed()
+            }
+        }
+    }
+
+    opened() {
+        this.state = 'open'
+    }
+
+    closing() {
+        this.state = 'pending-close'
+    }
+
+    closed() {
+        this.state = 'closed'
     }
 
     close({ longPrice, shortPrice, time }) {

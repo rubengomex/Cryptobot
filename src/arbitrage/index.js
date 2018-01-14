@@ -17,6 +17,8 @@ class Arbitrage {
         this.positions = []
         this.numberOfActivePositions = 1
         this.pairs = this.createPairs()
+        this.min = undefined
+        this.max = undefined
     }
 
     async start(){
@@ -47,14 +49,23 @@ class Arbitrage {
 
             this.getAverageSpreads(history)
 
-            const delay = 3000
-            await PromiseTool.setInterval(delay, () => {
-                this.loop()
-            })
+            this.loop()
 
         } catch(err) {
             await this.start()
         }
+    }
+
+    async getOpenOrders() {
+        const orders = await Promise.all(this.exchanges.map(ex => {
+            return ex.openOrders({ product: this.product })
+        }))
+
+        return orders.reduce((d, o, i) => {
+            const ex = this.exchanges[i]
+            d[ex.name] = o
+            return d
+        }, {})
     }
 
     getAverageSpreads(history) {
@@ -83,8 +94,23 @@ class Arbitrage {
         return pairs
     }
 
+    async checkPendingOpens() {
+        const pending = this.positions.filter(p => p.state === 'pending-open')
+        await Promise.all(pending.map(p => {
+            return p.checkOrderState()
+        }))
+    }
+
     async loop() {
         try {
+            await this.checkPendingOpens()
+            const openOrders = await this.getOpenOrders()
+            const hasOpen = Object.keys(openOrders).reduce((has, key) => {
+                const orders = openOrders[key]
+                return has || orders.length > 0
+            }, false)
+
+            if(hasOpen) { return }
             const prices = await this.currentPrices()
             const pairs = this.createPairs()
 
@@ -112,6 +138,9 @@ class Arbitrage {
         }
 
         this.positions.forEach(p => p.print())
+        const delay = 3000
+        await PromiseTool.setTimeout(delay)
+        this.loop()
     }
 
     async checkSpread({ prices, exchanges }) {
@@ -124,7 +153,14 @@ class Arbitrage {
         const longStr = `${exchanges.long.name}: ${longPrice.toFixed(2)}`
         const shortStr = `${exchanges.short.name}:  ${shortPrice.toFixed(2)}`
         const spread = (100 - (longPrice / shortPrice * 100)).toFixed(2)
-        const spreadStr = `Spread: ${spread}%`
+
+        if(this.min === undefined) { this.min = spread }
+        if(this.max === undefined) { this.max = spread }
+        if(spread < this.min) { this.min = spread }
+        if(spread > this.max) { this.max = spread }
+
+
+        const spreadStr = `Spread: ${spread}% | Min: ${this.min} | Max: ${this.max}`
         const full = [`${new Date()}`, longStr, shortStr, spreadStr].join(' | ')
         console.log(full)
 
@@ -148,7 +184,7 @@ class Arbitrage {
                 console.log(`SHORT ORDER: ${shortPrice}`)
                 const position = new ArbitragePosition({ 
                     longPrice, shortPrice, 
-                    longName, shortName,
+                    exchanges,
                     time: new Date()
                  })
                 this.positions.push(position)
