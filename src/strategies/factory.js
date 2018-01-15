@@ -2,15 +2,13 @@ const Crossover = require('./crossover')
 const SimpleCCI = require('./cci')
 const Volume = require('./volume')
 
-exports.create = function({ type, period, ticks, onBuySignal, onSellSignal }) {
-    switch (type) {
+exports.create = function(data) {
+    switch (data.type) {
         case 'crossover':
-            return new Crossover({ period, ticks, onBuySignal, onSellSignal })
-            break;
+            return new Crossover(data)
         case 'volume': 
-            return new Volume({ period, ticks, onBuySignal, onSellSignal})
+            return new Volume(data)
         default:
-        return new SimpleCCI({ period, onBuySignal, onSellSignal})
-            break;
+            return new SimpleCCI(data)
     }
 }

@@ -2,9 +2,10 @@ const Candlestick = require('candlestick')
 const StrategyFactory = require('srategies/factory')
 const randomToken = require('random-token')
 const uuidv1 = require('uuid/v1')
+const BotModel = require('models/bot')
 
 class Trader {
-    constructor({ product, gdax, amount = 0.01, interval, period = 30, isLive = false, strategy }) {
+    constructor({ product, gdax, amount = 0.01, interval, period = 30, isLive = false, strategy, name }) {
         this.product = product
         this.exchange = gdax
         this.client = gdax.client
@@ -14,11 +15,23 @@ class Trader {
         this.amount = amount
         this.isLive = isLive
         this.strategyType = strategy
+        this.name = name
         this.state = 'initializing'
         this.tokens = {}
     }
 
     async start() {
+
+        this.model = await BotModel.botWithData({
+            product: this.product, 
+            interval: this.interval, 
+            period: this.period, 
+            amount: this.amount,
+            strategy: this.strategyType, 
+            name: this.name,
+            isLive: this.isLive
+        })
+
         if(this.isLive) {
             console.log('Heads up, we are running live')
         }
@@ -53,6 +66,8 @@ class Trader {
             type: this.strategyType,
             period: this.period,
             ticks: this.candlesticks,
+            bot: this.model,
+            isLive: this.isLive,
             onBuySignal: price => this.onBuySignal(price),
             onSellSignal: price => this.onSellSignal(price)
         })
@@ -60,7 +75,7 @@ class Trader {
         // Start Ticker
         this.ticker = await this.exchange.ticker({
             product: this.product,
-            onTick: data => this.onTick(data),
+            onTick: async data => await this.onTick(data),
             onError: this.onTickerError
         })
         // Start OrderBook
@@ -68,7 +83,7 @@ class Trader {
         // Start user feed
         this.userFeed = await this.exchange.userFeed({
             product: this.product,
-            onUpdate: data => this.onUserUpdate(data),
+            onUpdate: async data => await this.onUserUpdate(data),
             onError: this.onUserFeedError
         })
 
@@ -76,33 +91,44 @@ class Trader {
     }
 
     // receives on tick data
-    onTick(data) {
-        const {price, volume} = data
-        console.log(`Time: ${new Date}    Price: ${price}`)
+    async onTick(data) {
 
-        if(!this.currentCandle) {
-            this.currentCandle = new Candlestick({ 
-                price: parseFloat(price), 
-                volume: parseFloat(volume),
-                interval: this.interval 
-            })
-            return
+        try {
+            const {price, volume} = data
+            console.log(`Time: ${new Date}    Price: ${price}`)
+
+            if(!this.currentCandle) {
+                this.currentCandle = new Candlestick({ 
+                    price: parseFloat(price), 
+                    volume: parseFloat(volume),
+                    interval: this.interval 
+                })
+                return
+            }
+
+            this.currentCandle.onPrice({ p: price, v: volume })
+
+            const ticks = this.candlesticks.slice()
+            ticks.push(currentCandle)
+            await this.strategy.run({ ticks, time: new Date() })
+
+            this.strategy.trades.forEach(t => t.print())
+
+            if(this.currentCandle.state === 'closed') {
+                const candle = this.currentCandle
+                this.currentCandle = null
+                this.candlesticks.push(candle)
+            }
+        } catch(err) {
+            console.log(err)
         }
-
-        this.currentCandle.onPrice({ p: price, v: volume })
-
-        const ticks = this.candlesticks.slice()
-        ticks.push(currentCandle)
-        await this.strategy.run({ ticks, time: new Date() })
-
-        this.strategy.trades.forEach(t => t.print())
     }
 
     onTickerError(error) {
         console.log(error)
     }
 
-    onUserUpdate(data) {
+    async onUserUpdate(data) {
         let side
         let orderId
 
@@ -121,11 +147,12 @@ class Trader {
                 const price = parseFloat(data['price'])
                 const time = new Date(data['time'])
                 if(this.orders[side][orderId]) {
+                    const data = { price, time, order: orderId, amount: this.amount }
                     if(side === 'sell') {
-                        this.strategy.positionClosed({ price, time })
+                        await this.strategy.positionClosed(data)
                         this.selling = false
                     } else {
-                        this.strategy.positionOpened({ price, time })
+                        await this.strategy.positionOpened(data)
                         this.buying = false
                     }
                 }
@@ -138,16 +165,59 @@ class Trader {
         console.log(error)
     }
 
-
-
-
-
     async onBuySignal(price) {
-        this.strategy.positionOpened( { price, time: new Date() })
+         if(this.buying) { return }
+         this.buying = true
+         try {
+             const token = uuidv1()
+             this.tokens[token] = 'buy'
+             const buyParams = {
+                 size: this.amount,
+                 product_id: this.product,
+                 type: 'market',
+                 client_oid: token
+             }
+             if(this.isLive) {
+                 const order = await this.client.buy(buyParams)
+                 if(order.message) {
+                     throw new Error(order.message)
+                 }
+             } else {
+                this.strategy.positionOpened( { price, time: new Date(), amount: this.amount })
+                this.buying = false
+             }
+         } catch(err) {
+             console.log(error)
+             this.buying = false
+         }
     }
 
     async onSellSignal(price) {
-        this.strategy.positionClosed({ price, time: new Date() })
+        if(this.selling) { return }
+        this.selling = true
+
+        try {
+            const token = uuidv1()
+            this.tokens[token] = 'sell'
+            const buyParams = {
+                size: this.amount,
+                product_id: this.product,
+                type: 'market',
+                client_oid: token
+            }
+            if(this.isLive) {
+                const order = await this.client.sell(buyParams)
+                if(order.message) {
+                    throw new Error(order.message)
+                }
+            } else {
+               this.strategy.positionClosed( { price, time: new Date(), amount: this.amount })
+               this.selling = false
+            }
+        } catch(err) {
+            console.log(error)
+            this.selling = false
+        }
     }
 
 

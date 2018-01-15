@@ -1,25 +1,47 @@
 const Trade = require('trade')
+const TradeModel = require('models/trade')
 
 class Strategy {
-    constructor({ period , ticks = [], onBuySignal, onSellSignal }) {
+    constructor({ period, onBuySignal, onSellSignal, bot, isLive = false }) {
         this.period = period
-        this.ticks = ticks
         this.onBuySignal = onBuySignal
         this.onSellSignal = onSellSignal
+        this.isLive = isLive
+        this.bot = bot
         this.maxActiveTrades = 1
         this.trades = []
     }
 
-    positionOpened(price) {
+    async positionOpened({ price, time, amount, order }) {
         console.log('BUY ORDER')
-        this.trades.push(new Trade({ price, time: new Date()}))
+        let model
+
+        if(this.bot) {
+            model = await TradeModel.create({
+                state: 'open',
+                bot: this.bot,
+                enter: { time, amount, order, price }
+            })
+        }
+
+        this.trades.push(new Trade({ price, time, model, amount }))
     }
 
-    positionClosed(price) {
+     async positionClosed({ price, time, amount, order }) {
         console.log('SELL ORDER')
         const openTrades = this.getOpenTrades()
 
-        openTrades.forEach(trade => trade.close({ price, time: new Date()}))
+        openTrades.forEach(async trade => {
+            let model
+
+            if(this.bot) {
+                model = trade.model
+                model.exit = { time, amount, order, price }
+                model = await model.save()
+            }
+                
+            trade.close({ price, time, model, amount })
+        })
     }
 
     getOpenTrades(){

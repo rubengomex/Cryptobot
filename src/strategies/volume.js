@@ -43,7 +43,7 @@ class Volume extends Strategy {
         if(openTrades.length < this.maxActiveTrades) {
             if(price < bbL){ 
                 if((signal < -25 && hist < 0) ||  (rsiL < 27 && signal > 0 )) {
-                    this.onBuySignal(price)
+                    await this.onBuySignal(price)
                 }
             } 
         } else {
@@ -52,7 +52,7 @@ class Volume extends Strategy {
                 ((price > bbH && rsiL > 60) || (price > bbM && rsiL > 75)) && 
                 ((signal < 0 && signal > -30) || signal > 33) && 
                 price > active.enter.price * 1.02) {
-                this.onSellSignal(price)
+                await this.onSellSignal(price)
             }
         }
 
