@@ -13,30 +13,40 @@ class Volume extends Strategy {
         const bbRes = tulind.indicators.bbands.indicator([prices], [this.period, 2])
         const obvRes = tulind.indicators.obv.indicator([close, volume], [])
 
+        const shortPeriod = this.period * 0.5
+        const longPeriod = this.period
+        const signalPeriod = this.period * 2
+        const macdRes = await tulind.indicators.macd.indicator([prices], [shortPeriod, longPeriod, signalPeriod])
+
         const [obv] = obvRes
         const [rsi] = rsiRes
         const [bbLow, bbMid, bbHigh] = bbRes
+        const [macd, signals, histo] = macdRes
         const obvL = obv[obv.length - 1]
-        const rsiL = rsi[rsi.length - 1]
         const bbL = bbLow[bbLow.length - 1]
         const bbM = bbMid[bbMid.length - 1]
         const bbH = bbHigh[bbHigh.length - 1]
+        const rsiL = rsi[rsi.length - 1]
+        const macdL = macd[ma.length - 1]
+        const signal = signals[signals.length - 1]
+        const hist = histo[histo.length -1]
 
-        if(!obvL || !bbL || !rsiL) { return }
+        if(!obvL || !bbL || !rsiL || !macdL || !signal || !hist) { return }
 
         console.log(`Time: ${time}    Price: ${price.toFixed(2)}\
         Volume: ${vol.toFixed(2)}    OBV: ${obvL.toFixed(2)}\
         Low: ${bbL.toFixed(2)}    Mid: ${bbM.toFixed(2)}\
-        High ${bbH.toFixed(2)}    RSI: ${rsiL.toFixed(2)}`)
+        High ${bbH.toFixed(2)}    RSI: ${rsiL.toFixed(2)}\
+        MACD: ${macdL.toFixed(2)}    Signal: ${signal}    Hist: ${hist}`)
 
         const openTrades = this.getOpenTrades()
         if(openTrades.length < this.maxActiveTrades) {
-            if(price < bbL && rsiL < 125) {
+            if(price < bbL && rsiL < 25 && signal < 0 && hist < 0) {
                 this.onBuySignal(price)
             } 
         } else {
             const [active] = openTrades
-            if(price > bbH && rsiL > -75 && price > active.enter.price * 1.04) {
+            if(price * 1.01 > bbH && rsiL > 75 && price > active.enter.price * 1.04) {
                 this.onSellSignal(price)
             }
         }

@@ -14,7 +14,7 @@ program.version(pkg.version)
     .option('-L, --live', 'Run live in arbitrage')
     .option('-a, --amount <n>', 'The amount for arbitrage', parseFloat)
     .option('-S, --strategy [strategy]', 'The strategy to use (crossover, cci, volume)')
-    .option('-P, --price <n>', 'The price to invest on trade (trade and backtest use only', parseFloat)
+    .option('-P, --period <n>', 'The period to invest on trade (trade and backtest use only', parseFloat)
     .parse(process.argv)
 
 const main = async () => {
@@ -24,7 +24,7 @@ const main = async () => {
         case 'trade':
             const trader = new Trader({
                 ...options,
-                amount: program.price,
+                period: program.period,
                 strategy: program.strategy
             })
             await trader.start()
@@ -34,7 +34,7 @@ const main = async () => {
             const backtester = new Backtester({
                 ...options,
                 strategy: program.strategy,
-                period: 30,
+                period: program.period,
                 start: new Date(now - 24 * 60 * 60 * 1000),
                 end: new Date(now)
             })
