@@ -34,19 +34,24 @@ class Volume extends Strategy {
         if(!obvL || !bbL || !rsiL || !macdL || !signal || !hist) { return }
 
         console.log(`Time: ${time}    Price: ${price.toFixed(2)}\
-        Volume: ${vol.toFixed(2)}    OBV: ${obvL.toFixed(2)}\
+        Volume: ${vol.toFixed(2)}\
         Low: ${bbL.toFixed(2)}    Mid: ${bbM.toFixed(2)}\
         High ${bbH.toFixed(2)}    RSI: ${rsiL.toFixed(2)}\
-        MACD: ${macdL.toFixed(2)}    Signal: ${signal}    Hist: ${hist}`)
+        Signal: ${signal}    Hist: ${hist}`)
 
         const openTrades = this.getOpenTrades()
         if(openTrades.length < this.maxActiveTrades) {
-            if(price < bbL && rsiL < 25 && signal < 0 && hist < 0) {
-                this.onBuySignal(price)
+            if(price < bbL){ 
+                if((signal < -25 && hist < 0) ||  (rsiL < 25 && signal > 0 )) {
+                    this.onBuySignal(price)
+                }
             } 
         } else {
             const [active] = openTrades
-            if(price * 1.01 > bbH && rsiL > 75 && price > active.enter.price * 1.04) {
+            if(
+                ((price > bbH && rsiL > 60) || (price > bbM && rsiL > 75)) && 
+                ((signal < 0 && signal > -30) || signal > 33) && 
+                price > active.enter.price * 1.02) {
                 this.onSellSignal(price)
             }
         }
