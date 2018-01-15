@@ -42,7 +42,7 @@ class Volume extends Strategy {
         const openTrades = this.getOpenTrades()
         if(openTrades.length < this.maxActiveTrades) {
             if(price < bbL){ 
-                if((signal < -25 && hist < 0) ||  (rsiL < 25 && signal > 0 )) {
+                if((signal < -25 && hist < 0) ||  (rsiL < 27 && signal > 0 )) {
                     this.onBuySignal(price)
                 }
             } 
