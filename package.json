@@ -26,6 +26,8 @@
     "mongoose": "4.13.8",
     "node-bitstamp": "1.6.1",
     "promise-tool": "1.1.5",
-    "technicalindicators": "1.0.21"
+    "random-token": "0.0.8",
+    "tulind": "0.8.9",
+    "uuid": "3.1.0"
   }
 }

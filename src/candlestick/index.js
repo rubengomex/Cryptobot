@@ -1,12 +1,13 @@
 
 class Candlestick {
-    constructor({ price, interval, open, close, high, low }) {
-        this.startTime = new Date()
+    constructor({ price, interval, open, close, high, low, startTime = new Date(), volume }) {
+        this.startTime = startTime
         this.interval = interval
         this.open = open || price
         this.close = close || price
         this.high = high || price
         this.low = low || price
+        this.volume = volume || 0
         this.state = close ? 'closed' : 'open'
     }
 
@@ -14,10 +15,12 @@ class Candlestick {
         return (this.close + this.high + this.low) / 3
     }
 
-    onPrice(p) {
+    onPrice({ p, v = 0}) {
         const price = parseFloat(p)
-
+        const volume = parseFloat(v)
         if(this.state === 'closed') { return }
+
+        this.volume = this.volume + v
         if(this.high < price) { this.high = price }
         if(this.low > price) { this.low = price }
 

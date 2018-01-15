@@ -13,6 +13,8 @@ program.version(pkg.version)
     .option('-l, --long [longExchange]', 'The exchange to long on (arbitrage only)', 'bitstamp')
     .option('-L, --live', 'Run live in arbitrage')
     .option('-a, --amount <n>', 'The amount for arbitrage', parseFloat)
+    .option('-S, --strategy [strategy]', 'The strategy to use (crossover, cci, volume)')
+    .option('-P, --price <n>', 'The price to invest on trade (trade and backtest use only', parseFloat)
     .parse(process.argv)
 
 const main = async () => {
@@ -20,13 +22,18 @@ const main = async () => {
 
     switch (program.type) {
         case 'trade':
-            const trader = new Trader(options)
+            const trader = new Trader({
+                ...options,
+                amount: program.price,
+                strategy: program.strategy
+            })
             await trader.start()
             break
         case 'backtest':
             const now = new Date() - 1 * 60 * 1000
             const backtester = new Backtester({
-                ...options, 
+                ...options,
+                strategy: program.strategy,
                 period: 30,
                 start: new Date(now - 24 * 60 * 60 * 1000),
                 end: new Date(now)

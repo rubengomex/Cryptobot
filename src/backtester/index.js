@@ -1,8 +1,11 @@
-const SimpleCCI = require('strategies/simpleCCI')
+// const SimpleCCI = require('strategies/simpleCCI')
+
 const Candlestick = require('candlestick')
+const StrategyFactory = require('strategies/factory')
+const Average = require('strategies/movingAverage')
 
 class Backtester {
-    constructor({ start, end, period, interval, gdax, product }){
+    constructor({ start, end, period, interval, gdax, product, strategy }){
         this.startTime = start
         this.endTime = end
         this.period = period
@@ -11,6 +14,7 @@ class Backtester {
         this.client = gdax.client
         this.client.productID = product
         this.product = product
+        this.strategyType = strategy
     }
 
     async start() {
@@ -22,18 +26,31 @@ class Backtester {
         })
 
         this.candlesticks = history.map(stick => {
-            const [startTime, low, high, open, close] = stick
-            return new Candlestick({ startTime: new Date(startTime* 1000), low, high, open, close, interval: this.interval })
+            const [startTime, low, high, open, close, volume] = stick
+            return new Candlestick({ 
+                startTime: new Date(startTime* 1000), 
+                low, high, open, close, 
+                interval: this.interval,
+                volume
+            })
         }).reverse()
 
         // strategy
-        this.strategy = new SimpleCCI({ 
+        this.strategy = StrategyFactory.create({
+            type: this.strategyType,
             period: this.period,
-            ticks: this.candlesticks,
             onBuySignal: price => this.onBuySignal(price),
             onSellSignal: price => this.onSellSignal(price)
         })
-        await this.strategy.initialize()
+
+        const length = this.candlesticks.length
+
+        for(let i = 0; i < length; i++) {
+            const tick = this.candlesticks[i]
+            const ticks = this.candlesticks.slice(0, i + 1)
+            this.currentTime = tick.startTime
+            await this.strategy.run({ ticks, time: tick.startTime })
+        }
 
         this.candlesticks.forEach(async tick => {
             this.currentTime = tick.startTime
@@ -42,11 +59,7 @@ class Backtester {
 
         const trades = this.strategy.trades
 
-        trades.forEach(trade => {
-            const {enter, exit, state} = trade
-            const exitStr = exit ? `${exit.time} ${trade.profit()}` : '' 
-            console.log(`${state} ${enter.time} ${enter.price} ${exitStr}`)
-        })
+        trades.forEach(trade => trade.print())
     }
 
     async onBuySignal(price) {
